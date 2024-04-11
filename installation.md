@@ -264,6 +264,21 @@ And for the `ckan-uwsgi.ini` we need to set:
 ``` ini
 # -*- coding: utf-8 -*-
 [uwsgi]
+
+http            =  127.0.0.1:8080
+uid             =  www-data
+gid             =  www-data
+wsgi-file       =  /etc/ckan/default/wsgi.py
+virtualenv      =  /home/ubuntu/.pyenv/versions/3.9.19/envs/local/
+module          =  wsgi:application
+master          =  true
+pidfile         =  /tmp/%n.pid
+harakiri        =  50
+max-requests    =  5000
+vacuum          =  true
+callable        =  application
+buffer-size     =  32768
+strict          =  true
 ```
 
 To reload all use
