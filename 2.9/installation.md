@@ -4,10 +4,30 @@ Before installing CKAN we need to install pyenv and install python 3.9.19 becaus
 
 Follow steps to install from README file
 
+## Setting up the pyenv
+
+```
+curl https://pyenv.run | bash
+```
+
+After installation we need to add pyenv to the PATH
+
+``` bash
+echo 'export PYENV_ROOT="$HOME/.pyenv"' >> ~/.bashrc
+echo 'command -v pyenv >/dev/null || export PATH="$PYENV_ROOT/bin:$PATH"' >> ~/.bashrc
+echo 'eval "$(pyenv init -)"' >> ~/.bashrc
+```
+
+To enable the changes we need to run
+
+``` bash
+source ~/.bashrc
+```
+
 ### Install the CKAN required packages
 
 ``` bash
-sudo apt-get install python3-dev postgresql libpq-dev python3-pip python3-venv git-core openjdk-8-jdk redis-server libffi-dev libncurses-dev libbz2-dev libreadline-dev libsqlite3-dev
+sudo apt-get install python3-dev postgresql libpq-dev python3-pip python3-venv git-core openjdk-8-jdk redis-server libffi-dev libncurses-dev libbz2-dev libreadline-dev libsqlite3-dev supervisor
 liblzma-dev nginx
 ```
 
@@ -15,10 +35,19 @@ liblzma-dev nginx
 
 ``` bash
 pyenv install 3.9.19
-pyenv virtualenv local
+pyenv global 3.9.19
+pyenv virtualenv okgt
+pyenv activate okgt
 # Navigate to virtual env location
-cd .pyenv/versions/3.9.19/envs/local/
+cd .pyenv/versions/3.9.19/envs/okgt/
 ```
+
+## Add uwsgi to the virtual environment
+
+``` bash
+pip install uwsgi
+```
+
 
 ### Install CKAN from source
 
@@ -29,7 +58,7 @@ pip install -e 'git+https://github.com/ckan/ckan.git@ckan-2.9.11#egg=ckan[requir
 > **_NOTE:_** If the requirements dont install or throw an error, following commands should be executed
 
 ``` bash
-cd .pyenv/versions/3.9.19/envs/local/src/ckan/
+cd .pyenv/versions/3.9.19/envs/okgt/src/ckan/
 pip install -r requirement-setuptools.txt 
 pip install -r requirements.txt
 python setup.py install
@@ -48,6 +77,7 @@ sudo -u postgres createdb -O ckan_default ckan_default -E utf-8
 ### Optiona: Setup SOLR
 
 To install SOLR we need to download it frist
+> **_NOTE:_**  Use `sudo` if getting permission denied
 
 ``` bash
 cd /opt
@@ -57,6 +87,7 @@ bash ./install_solr_service.sh solr-8.11.3.tgz -f
 ```
 
 When installation ends we need to setup SOLR core
+> **_NOTE:_**  Use `sudo` if getting permission denied
 
 ```bash
 sudo su solr
@@ -74,25 +105,27 @@ When the core is set, we need to link the schema to SOLR
 sudo su
 cd /var/solr/data/ckan/conf
 rm managed-schema
-cp /usr/lib/ckan/default/src/ckan/ckan/config/solr/schema.solr8.xml schema.xml
+cp /home/ubuntu/.pyenv/versions/3.9.19/envs/okgt/src/ckan/ckan/config/solr/schema.solr8.xml schema.xml
 chown solr:solr schema.xml
 systemctl restart solr
 ```
 
 ### Continue with CKAN setup
+> **_NOTE:_**  Use `sudo` if getting permission denied
 
 After successfully setup of the database and SOLR, make CKAN configuration folder
 
 ``` bash
-mkdir -p /etc/ckan/default
+sudo mkdir -p /etc/ckan/default
 # Create soft link to who.ini
-ln -s /home/ubuntu/.pyenv/versions/3.9.19/envs/local/src/ckan/who.ini /etc/ckan/default/who.ini
+sudo ln -s /home/ubuntu/.pyenv/versions/3.9.19/envs/okgt/src/ckan/who.ini /etc/ckan/default/who.ini
 ```
 
 Navigate to CKAN environment folder
+> **_NOTE:_**  Use `sudo` if getting permission denied
 
 ``` bash
-cd .pyenv/versions/3.9.19/envs/local/bin
+cd .pyenv/versions/3.9.19/envs/okgt/bin
 # Generate ckan.ini 
 ./ckan generate config /etc/ckan/default/ckan.ini
 # ... here you will need to set the values for SOLR / DB / ckan site_url
@@ -106,6 +139,8 @@ Runnung `./ckan -c /etc/ckan/default/clkan.ini run` would start CKAN
 To continue with Prodcution setup, we need to configure NGINX and Supervisor
 
 ### Setup NGINX
+
+> **_NOTE:_**  Use `sudo` if getting permission denied
 
 Nginx configuration:
 
@@ -122,7 +157,7 @@ proxy_temp_path /tmp/nginx_proxy 1 2;
 server {
     client_max_body_size 100M;
     location / {
-        proxy_pass http://127.0.0.1:8080/;
+        proxy_pass http://localhost:5000/;
         proxy_set_header X-Forwarded-For $remote_addr;
         proxy_set_header Host $host;
         proxy_cache cache;
@@ -148,6 +183,7 @@ ln -s /etc/nginx/sites-available/ckan /etc/nginx/sites-enabled/ckan
 Supervisor will be used to manage the running of CKAN and workers
 
 Navigate to supervsior configuration
+> **_NOTE:_**  Use `sudo` if getting permission denied
 
 ``` bash
 cd /etc/supervisor/conf.d/
@@ -161,7 +197,7 @@ For `ckan-wsgi.conf` add follwoing content
 ``` conf
 [program:ckan-uwsgi]
 
-command=/home/ubuntu/.pyenv/versions/3.9.19/envs/local/bin/uwsgi -i /etc/ckan/default/ckan-uwsgi.ini
+command=/home/ubuntu/.pyenv/versions/3.9.19/envs/okgt/bin/uwsgi -i /etc/ckan/default/ckan-uwsgi.ini
 
 ; Start just a single worker. Increase this number if you have many or
 ; particularly long running background jobs.
@@ -203,7 +239,7 @@ For the `ckan-jobworker.conf` we need to set following content
 [program:ckan-jobworker]
 
 ; Use the full paths to the virtualenv and your configuration file here.
-command=/home/ubuntu/.pyenv/versions/3.9.19/envs/local/bin/ckan -c /etc/ckan/default/ckan.ini jobs worker
+command=/home/ubuntu/.pyenv/versions/3.9.19/envs/okgt/bin/ckan -c /etc/ckan/default/ckan.ini jobs worker
 
 ; User the worker runs as.
 user=www-data
@@ -236,6 +272,7 @@ stopwaitsecs = 600
 ```
 
 Additionally we need to create `wsgy.py` and `ckan-uwsgi.ini` files in `/etc/ckan/default` location
+> **_NOTE:_**  Use `sudo` if getting permission denied
 
 ``` bash
 cd /etc/ckan/default
@@ -269,7 +306,7 @@ http            =  127.0.0.1:8080
 uid             =  www-data
 gid             =  www-data
 wsgi-file       =  /etc/ckan/default/wsgi.py
-virtualenv      =  /home/ubuntu/.pyenv/versions/3.9.19/envs/local/
+virtualenv      =  /home/ubuntu/.pyenv/versions/3.9.19/envs/okgt/
 module          =  wsgi:application
 master          =  true
 pidfile         =  /tmp/%n.pid
