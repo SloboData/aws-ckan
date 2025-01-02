@@ -1,6 +1,6 @@
 # Installing CKAN 2.10 on AWS EC2 Ubuntu
 
-AWS Ubuntu comes with preinstalled Python 3.10 which is supported by CKAN 2.10. So we can directly install CKAN 2.10 without installing pyenv and python 3.9.19.
+AWS Ubuntu comes with preinstalled Python 3.10 which is supported by CKAN 2.10. So we can directly install CKAN 2.10 without installing pyenv or specific python version.
 
 ## Prerequisites
 
